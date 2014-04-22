@@ -12,7 +12,7 @@ const config = require('../lib/config');
 const db = require('../lib/db');
 const Server = require('./lib/server');
 
-/*global describe,before,it*/
+/*global describe,it*/
 
 const USERID = crypto.randomBytes(16).toString('hex');
 const TOKEN_GOOD = JSON.stringify({
@@ -22,16 +22,12 @@ const TOKEN_GOOD = JSON.stringify({
 });
 var avatarUrl = 'http://example.domain/path/img.png';
 
-function token() {
-  return crypto.randomBytes(32).toString('hex');
-}
-
 function mockToken() {
   var parts = url.parse(config.get('oauth.url'));
   return nock(parts.protocol + '//' + parts.host).post(parts.path + '/verify');
 }
 
-describe('/avatar', function() {
+describe.skip('/avatar', function() {
 
   it('should require authentication', function() {
     var imageData = { url: avatarUrl };
@@ -45,14 +41,10 @@ describe('/avatar', function() {
 
   it('should be able to post a url', function() {
     mockToken().reply(200, TOKEN_GOOD);
-    var tok = token();
     var imageData = { url: avatarUrl };
     return Server.api.post({
       url: '/avatar',
-      payload: JSON.stringify(imageData),
-      headers: {
-        authorization: 'Bearer ' + tok
-      }
+      payload: JSON.stringify(imageData)
     }).then(function(res) {
       assert.equal(res.statusCode, 200);
 
@@ -63,15 +55,11 @@ describe('/avatar', function() {
   });
 
   it('should fail if is not a url', function() {
-    var uid = token();
     mockToken().reply(200, TOKEN_GOOD);
     var imageData = { url: 'blah' };
     return Server.api.post({
       url: '/avatar',
-      payload: JSON.stringify(imageData),
-      headers: {
-        authorization: 'Bearer ' + uid
-      }
+      payload: JSON.stringify(imageData)
     }).then(function(res) {
       assert.equal(res.statusCode, 400);
     });
@@ -85,21 +73,10 @@ describe.skip('/avatar/upload', function() {
 });
 
 describe('/email', function() {
-  var uid = token();
-  before(function() {
-    return db.createProfile({
-      uid: uid,
-      avatar: avatarUrl
-    });
-  });
-
   it('should return an email', function() {
     mockToken().reply(200, TOKEN_GOOD);
     return Server.api.post({
-      url: '/email',
-      headers: {
-        authorization: 'Bearer ' + uid
-      }
+      url: '/email'
     }).then(function(res) {
       assert.equal(res.statusCode, 200);
       assert.equal(JSON.parse(res.payload).email, 'user@example.domain');
@@ -112,10 +89,7 @@ describe('/email', function() {
       scope: ['foo', 'bar']
     }));
     return Server.api.post({
-      url: '/email',
-      headers: {
-        authorization: 'Bearer ' + uid
-      }
+      url: '/email'
     }).then(function(res) {
       assert.equal(res.statusCode, 403);
     });

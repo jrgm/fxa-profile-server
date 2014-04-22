@@ -2,13 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const version = require('../../lib/config').get('api.version');
-const Promise = require('../../lib/promise');
+const url = require('url');
+
+const gryphon = require('gryphon');
+
+const config = require('../../lib/config');
+const version = config.get('api.version');
+const P = require('../../lib/promise');
 const Server = require('../../lib/server');
 
 function request(options) {
   var server = Server.create();
-  var deferred = Promise.defer();
+  var deferred = P.defer();
   server.inject(options, deferred.resolve.bind(deferred));
   return deferred.promise;
 }
@@ -32,12 +37,31 @@ exports.get = function get(options) {
   return request(options);
 };
 
+const KEYS = gryphon.keys();
+const PUBLIC_URL = url.parse(config.get('publicUrl'));
+
+function sign(req, opts) {
+  if (!opts) {
+    opts = KEYS;
+  }
+  console.log(PUBLIC_URL);
+  var parts = {};
+  parts.path = req.url;
+  parts.hostname = PUBLIC_URL.hostname;
+  parts.port = PUBLIC_URL.port;
+  parts.method = 'POST';
+  var header = gryphon.header(parts, opts);
+  req.headers = req.headers || {};
+  req.headers.authorization = header;
+  return req;
+}
+
 var api = {};
 Object.keys(exports).forEach(function(key) {
-  api[key] = function api(options) {
-    options = opts(options);
-    options.url = '/v' + version + options.url;
-    return exports[key](options);
+  api[key] = function api(req, options) {
+    req = opts(req);
+    req.url = '/v' + version + req.url;
+    return exports[key](sign(req, options));
   };
 });
 
