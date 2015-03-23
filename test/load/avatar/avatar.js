@@ -13,6 +13,12 @@ var request = require('request');
 
 var SIZES = require('../../../lib/img').SIZES;
 
+function randomSizeKey() {
+  var index = Math.floor(Math.random() * 3);
+  var key = Object.keys(SIZES)[index];
+  return (key === 'default') ? null : key;
+}
+
 function jsonParse(content) {
   try {
     return JSON.parse(content);
@@ -21,14 +27,14 @@ function jsonParse(content) {
   }
 }
 
-function isValidPng(image, cb) {
+function isValidPng(image, sizeKey, cb) {
   // must parse ok, and be expected pixel dimensions
   pngparse.parseBuffer(image, function(err, data) {
     if (err) {
       return cb(err);
     }
 
-    var expect = SIZES.default;
+    var expect = sizeKey ? SIZES[sizeKey] : SIZES.default;
 
     if (data.width !== expect.w || data.height !== expect.h) {
       var msg = 'Invalid PNG size: (' + data.width + ',' + data.height + ')';
@@ -122,9 +128,13 @@ Avatar.prototype.download = function avatarDownload(options) {
 
   this.log('start:download    -> %s', options.url);
 
+  // pick one of small, default, and large sizes of the avatar
+  var sizeKey = randomSizeKey();
+  var url = sizeKey ? (options.url + '_' + sizeKey) : options.url;
+
   var requestArgs = { 
     encoding: null, // `encoding: null` will return body as a `Buffer`
-    uri: options.url,
+    uri: url,
     gzip: true,
     maxSockets: Infinity,
   };
@@ -152,7 +162,7 @@ Avatar.prototype.download = function avatarDownload(options) {
       return self.emit('error', result);
     }
 
-    isValidPng(body, function(err /*, data */) {
+    isValidPng(body, sizeKey, function(err /*, data */) {
       if (err) {
         result.error = err;
         return self.emit('error', result);
